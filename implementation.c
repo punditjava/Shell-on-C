@@ -112,6 +112,8 @@ void handler_CtrlC(int sig)
     Quit = 1;
 }
 	
+
+
 	/***ПРИЁМ ДАННЫХ***/
 
 static inline unsigned long inc(unsigned long *i, char *buf, size_t *bufSize) {
@@ -446,6 +448,44 @@ int add_progs(void) {
     return n;
 }
 
+void io_redirect(void) {
+
+    int i,j;
+    int current_argc;
+    struct _Program *current_program = NULL;
+
+    for( i = 0; i < job->n; i++) {
+        current_program = job->programs[i];
+        current_argc = current_program->number_of_arguments;
+
+        for( j = 0; j < current_argc; j++) {
+            if( *(current_program->arguments[j]) == '<' || *(current_program->arguments[j]) == '>') {
+                if( *(current_program->arguments[j]) == '<') {
+                    current_program->input_file = (char*)malloc(sizeof(char)*(strlen(current_program->arguments[j+1])+1));
+                    strcpy(current_program->input_file, current_program->arguments[j+1]);
+                }
+
+                if( *(current_program->arguments[j]) == '>') {
+                    current_program->output_type = 1;
+                    if( *(current_program->arguments[j]+1) == '>')
+                        current_program->output_type = 2;
+
+                    current_program->output_file = (char*)malloc(sizeof(char)*(strlen(current_program->arguments[j+1])+1));
+                    strcpy(current_program->output_file, current_program->arguments[j+1]);
+                }
+
+                free(current_program->arguments[j]);
+                current_program->arguments[j] = NULL;
+                free(current_program->arguments[j+1]);
+                current_program->arguments[j+1] = NULL;
+                current_program->number_of_arguments -= 2;
+                j++;
+            }
+        }
+    }
+}
+
+
 void init_job(void) {
     job = (struct _Job*)malloc(sizeof(struct _Job));
     job->background = 0;
@@ -454,9 +494,71 @@ void init_job(void) {
     job->n = add_progs();
 
     parse_prog();
-    
+
+    io_redirect();
 }
 
+/***RUN JOBS***/
+
+int cd(char **args) {
+    int cdres = chdir(args[1]);
+    //printf("cdres=%d args[1]=%s\n", cdres, args[1]);
+    if(cdres == -1) {
+        printf("Нет такого каталога %s\n", args[1]);
+        return 1;
+    }
+    return 0;
+}
+
+
+void run_job(void) {
+    int i = 0;
+    int j = 0;
+    int pipes[job->n][2];
+    int fd;
+    
+    for( i = 0; i < job->n; i++) {
+        pipe(pipes[i]);
+    }
+
+    for( i = 0; i < job->n; i++) {
+
+        if( strcmp(job->programs[i]->arguments[0], "pwd") == 0) {
+            char dir[1024];
+
+            getcwd(dir, 1024);
+            printf("%s\n", dir);
+            continue;
+        }
+        if( strcmp(job->programs[i]->arguments[0], "cd") == 0) {
+            cd(job->programs[i]->arguments);
+            continue;
+        }
+        if( strcmp(job->programs[i]->arguments[0], "exit") == 0) {
+            Quit = 1;
+            continue;
+        }
+                for(int k = 0; k < i; k++) {
+                    close(pipes[k][0]);
+                    close(pipes[k][1]);
+                }
+
+                if(i > 0)
+                    waitpid(job->programs[i-1]->pid, NULL, 0);
+
+            } 
+            wait(NULL);
+            i--;
+} 
+
+void free_job(void) {
+    int i = 0;
+    for( i = 0; i < job->n; i++) {
+        free(job->programs[i]->name);
+        free(job->programs[i]);
+    }
+    free(job);
+}
 
 
 	/***РАБОТА С ТЕРМИНАЛОМ***/

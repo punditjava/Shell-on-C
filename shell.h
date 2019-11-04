@@ -49,6 +49,8 @@ void  handler_CtrlC(int);
 void invite(void);
 
 void init_job(void);
+void run_job(void);
+void free_job(void);
 void  initMS(void);
 
 char *mgets(void);

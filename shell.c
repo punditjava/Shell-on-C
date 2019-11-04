@@ -28,6 +28,9 @@ int main(int argc, char **argv)
 		if (strcmp(prog, "\n") != NULL) {
 			freeprog = prog;
 			init_job();
+			run_job();
+			
+			free_job();
 		}
 
 	} while (!Quit);
