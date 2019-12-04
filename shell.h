@@ -53,6 +53,8 @@ void run_job(void);
 void free_job(void);
 void  initMS(void);
 
+void free_history(void);
+
 char *mgets(void);
 void  serror(int error);
 

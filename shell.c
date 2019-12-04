@@ -25,17 +25,23 @@ int main(int argc, char **argv)
 		invite();
 
 		prog = mgets();
-		if (strcmp(prog, "\n") != NULL) {
+		if (strcmp(prog, "\n") != 0) {
 			freeprog = prog;
+
 			init_job();
+
 			run_job();
 			
 			free_job();
+
+			free(freeprog);
+			freeprog = NULL;
+			prog = NULL;
 		}
 
 	} while (!Quit);
 
-
+	free_history();
 	restore_terminal();
 
 	return 0;

@@ -1,10 +1,11 @@
 #include "shell.h"
 #define __RELISE__
-
+#define MAX_HIST 101
 	/***ПАРАМЕТРЫ***/
 
 const unsigned int   bufBlock = 256;
 unsigned             Conv = 0;
+extern char        **environ;
 extern unsigned      Quit;
 extern char        **argvv;
 extern int           isFile;
@@ -14,6 +15,9 @@ extern char         *temp; /* указатель на временный спи�
 char                 tempBuf[BUFSIZ];
 char                 tempVar[BUFSIZ];
 char                 lastDelim;
+
+char ***history_arr = NULL;
+int hist_size = 0;
 
 struct  termios old_attributes,
             new_attributes;
@@ -52,17 +56,17 @@ void initMS(void)
         serror(0);
 
     if (setenv("NUMB", shellPid, 0) != 0) {
-        fprintf (stderr, "setenv: Cannot set 'PID'\n");
+        fprintf (stderr, "setenv: Cannot set 'NUMB'\n");
     } else
         serror(0);
 
     if (setenv("HASH", shellPid, 0) != 0) {
-        fprintf (stderr, "setenv: Cannot set 'PID'\n");
+        fprintf (stderr, "setenv: Cannot set 'HASH'\n");
     } else
         serror(0);
 
     if (setenv("QUEST", shellPid, 0) != 0) {
-        fprintf (stderr, "setenv: Cannot set 'PID'\n");
+        fprintf (stderr, "setenv: Cannot set 'QUEST'\n");
     } else
         serror(0);
 
@@ -197,6 +201,80 @@ char * mgets(void) {
 
     return buf;
 }
+
+    /***HISTORY***/
+
+void free_char2 (char **str)
+{
+    int i = 0;
+
+
+    if (str != NULL)
+    {
+        while (str[i] != NULL)
+        {
+            free(str[i]);
+            str[i++] = NULL;
+        }
+
+        free(str);
+        str = NULL;
+    }
+}
+
+
+void free_history()
+{
+    int i = 0;
+
+
+    for (i = 0; i < hist_size; i++)
+        free_char2(history_arr[i]);
+
+    free(history_arr);
+    history_arr = NULL;
+
+}
+
+void add_history(char **str)
+{
+    int i = 0;
+
+
+    if (hist_size <= MAX_HIST-2)
+    {
+        history_arr[hist_size++] = str;
+        history_arr[hist_size] = NULL;
+    }
+    else
+    {   
+        free(history_arr[0]);
+        history_arr[0] = NULL;
+
+        for (i = 1; i < MAX_HIST-1; i++)
+            history_arr[i-1] = history_arr[i];
+
+        history_arr[i-1] = str;
+        history_arr[i] = NULL;
+    }
+
+}
+
+void write_history()
+{
+    int i = 0, j = 0;
+
+    for (i = 0; i < hist_size; i++)
+    {
+        j = 0;
+        printf("  !%d  ",i+1);
+        while (history_arr[i][j] != NULL)
+            printf("%s ",history_arr[i][j++]);
+        printf("\n");
+    }
+
+}
+
 	/***JOB***/
 
 void find_environment(const char *string) {
@@ -368,6 +446,7 @@ void parse_prog(void) {
 
         memset(tempBuf, 0, BUFSIZ);
     }
+    
 
 }
 
@@ -443,6 +522,7 @@ int add_progs(void) {
         job->programs = (struct _Program**)realloc(job->programs, n*sizeof(struct _Program*));
         job->programs[i] = (struct _Program *)malloc(sizeof(struct _Program *));
         job->programs[i] = prg;
+
     }
 
     return n;
@@ -534,10 +614,76 @@ void run_job(void) {
             cd(job->programs[i]->arguments);
             continue;
         }
+        if( strcmp(job->programs[i]->arguments[0], "history") == 0) {
+            write_history();
+            continue;
+        }
         if( strcmp(job->programs[i]->arguments[0], "exit") == 0) {
             Quit = 1;
             continue;
         }
+
+        if(job->programs[i]->conveyer == 0 ) {
+
+            job->programs[i]->pid = fork();
+            if(job->programs[i]->pid == 0) {
+
+            execvpe(job->programs[i]->arguments[0], job->programs[i]->arguments, environ);
+            exit(0);
+        }
+
+            waitpid(job->programs[i]->pid, NULL, 0);
+
+        } else {
+
+            for(j=0; j<job->convcount; j++, i++) {
+                job->programs[i]->pid = fork();
+
+                if(job->programs[i]->pid == 0) {
+
+                if( j == 0 ) {
+                        //printf("1 i=%d\tj=%d\n", i, j);
+                        //printf("PROG: %s\n", job->programs[i]->arguments[0]);
+
+                        close(pipes[i][0]);
+                        dup2(pipes[i][1], STDOUT_FILENO);
+                        close(pipes[i][1]);
+
+                        //execvpe(job->programs[i]->arguments[0], job->programs[i]->arguments, environ);
+                        //exit(0);
+                    } else if( (j > 0) && (j < (job->convcount-1)) ) {
+                        //printf("2 i=%d\tj=%d\n", i, j);
+                        //printf("PROG: %s\n", job->programs[i]->arguments[0]);
+
+                        close(pipes[i-1][1]);
+                        dup2 (pipes[i-1][0], STDIN_FILENO);
+                        close(pipes[i-1][0]);
+
+                        close(pipes[i][0]);
+                        dup2 (pipes[i][1], STDOUT_FILENO);
+                        close(pipes[i][1]);
+
+
+                        //execvpe(job->programs[i]->arguments[0], job->programs[i]->arguments, environ);
+                        //exit(0);
+                    } else if( j == (job->convcount-1) ) {
+                        //printf("3 i=%d\tj=%d\n", i, j);
+                        //printf("PROG: %s\n", job->programs[i]->arguments[0]);
+
+                        close(pipes[i-1][1]);
+                        dup2 (pipes[i-1][0], STDIN_FILENO);
+                        close(pipes[i-1][0]);
+
+
+                        //execvpe(job->programs[i]->arguments[0], job->programs[i]->arguments, environ);
+                        //exit(0);
+                    }
+
+                    execvpe(job->programs[i]->arguments[0], job->programs[i]->arguments, environ);
+                    exit(0);
+                }
+
+
                 for(int k = 0; k < i; k++) {
                     close(pipes[k][0]);
                     close(pipes[k][1]);
@@ -549,6 +695,8 @@ void run_job(void) {
             } 
             wait(NULL);
             i--;
+        }
+    }    
 } 
 
 void free_job(void) {
