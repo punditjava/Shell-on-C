@@ -1,5 +1,4 @@
 #include "shell.h"
-#define __RELISE__
 #define MAX_HIST 101
 	/***ПАРАМЕТРЫ***/
 
@@ -27,7 +26,6 @@ struct  termios old_attributes,
 
 void initMS(void) 
 {
-#ifdef __RELISE__
     char dir[1024];
     if( getcwd(dir, 1024) ) {
         if (setenv("SHELL", dir, 1) != 0) {
@@ -45,37 +43,12 @@ void initMS(void)
         fprintf (stderr, "setenv: Cannot set 'PID'\n");
     }
 
-#endif
-
-#ifdef __DEVELOP__
-    pid_t shellPid;
-    shellPid = getpid();
-    if (setenv("PID", shellPid, 0) != 0) {
-        fprintf (stderr, "setenv: Cannot set 'PID'\n");
-    } else
-        serror(0);
-
-    if (setenv("NUMB", shellPid, 0) != 0) {
-        fprintf (stderr, "setenv: Cannot set 'NUMB'\n");
-    } else
-        serror(0);
-
-    if (setenv("HASH", shellPid, 0) != 0) {
-        fprintf (stderr, "setenv: Cannot set 'HASH'\n");
-    } else
-        serror(0);
-
-    if (setenv("QUEST", shellPid, 0) != 0) {
-        fprintf (stderr, "setenv: Cannot set 'QUEST'\n");
-    } else
-        serror(0);
-
-	#endif
 }
 
 	/***ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ОШИБОК И Т.Д.**/
 
-int isdelim(char c) {
+int isdelim(char c) 
+{
     //if( c==';' || c=='\n' || c==0 || c==EOF )
 
     if( c==';' || c=='\n' || c==0 || c==EOF) {
@@ -120,7 +93,8 @@ void handler_CtrlC(int sig)
 
 	/***ПРИЁМ ДАННЫХ***/
 
-static inline unsigned long inc(unsigned long *i, char *buf, size_t *bufSize) {
+static inline unsigned long inc(unsigned long *i, char *buf, size_t *bufSize) 
+{
     (*i)++;
     if((*i) >= (*bufSize-1)) { /* -1 для \0 в конце строки */
         *bufSize += bufBlock;
@@ -129,7 +103,8 @@ static inline unsigned long inc(unsigned long *i, char *buf, size_t *bufSize) {
     return (*i);
 }
 
-char * mgets(void) {
+char * mgets(void) 
+{
     unsigned long i = 0;
     size_t bufSize = bufBlock;
     char *buf = NULL;
@@ -277,7 +252,8 @@ void write_history()
 
 	/***JOB***/
 
-void find_environment(const char *string) {
+void find_environment(const char *string) 
+{
     char *temp = tempVar;
     char buff[500];
     char *buf = buff;
@@ -342,7 +318,8 @@ void find_environment(const char *string) {
     }
 }
 
-void parse_prog(void) {
+void parse_prog(void) 
+{
     int i;
     int n = 0;
     char buff[50];
@@ -450,7 +427,8 @@ void parse_prog(void) {
 
 }
 
-struct _Program *new_prog(void) {
+struct _Program *new_prog(void) 
+{
 
     struct _Program *program = (struct _Program *)malloc(sizeof(struct _Program));
     program->name = (char*)malloc(strlen(tempBuf));
@@ -476,7 +454,8 @@ struct _Program *new_prog(void) {
     return program;
 }
 
-struct _Program *get_prog(void) {
+struct _Program *get_prog(void) 
+{
     memset(tempBuf, 0, BUFSIZ);
     temp = tempBuf;
 
@@ -511,7 +490,8 @@ struct _Program *get_prog(void) {
 }
 
 
-int add_progs(void) {
+int add_progs(void) 
+{
     int i = -1;
     int n =  0;
     struct _Program *prg;
@@ -528,7 +508,8 @@ int add_progs(void) {
     return n;
 }
 
-void io_redirect(void) {
+void io_redirect(void) 
+{
 
     int i,j;
     int current_argc;
@@ -566,7 +547,8 @@ void io_redirect(void) {
 }
 
 
-void init_job(void) {
+void init_job(void) 
+{
     job = (struct _Job*)malloc(sizeof(struct _Job));
     job->background = 0;
     job->convcount = 0;
@@ -580,7 +562,8 @@ void init_job(void) {
 
 /***RUN JOBS***/
 
-int cd(char **args) {
+int cd(char **args)
+{
     int cdres = chdir(args[1]);
     //printf("cdres=%d args[1]=%s\n", cdres, args[1]);
     if(cdres == -1) {
@@ -591,7 +574,8 @@ int cd(char **args) {
 }
 
 
-void run_job(void) {
+void run_job(void) 
+{
     int i = 0;
     int j = 0;
     int pipes[job->n][2];
@@ -628,7 +612,38 @@ void run_job(void) {
             job->programs[i]->pid = fork();
             if(job->programs[i]->pid == 0) {
 
-            execvpe(job->programs[i]->arguments[0], job->programs[i]->arguments, environ);
+            if(job->programs[i]->input_file != NULL) {
+                    fd = open(job->programs[i]->input_file, O_RDONLY);
+                    if(fd == -1) {
+                        perror("Unable to open an input file\n");
+                        exit(-1);
+                    }
+
+                    dup2(fd, 0);
+                    close(fd);
+                }
+
+                if(job->programs[i]->output_file != NULL) {
+                    if(job->programs[i]->output_type == 1) {
+                        //fd = open(job->progs[i]->ofile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                        fd = open(job->programs[i]->output_file, O_WRONLY | O_CREAT | O_TRUNC);
+                    }
+                    if(job->programs[i]->output_type == 2) {
+                        //fd = open(job->progs[i]->ofile, O_WRONLY | O_CREAT | O_APPEND);
+                        fd = open(job->programs [i]->output_file,  O_WRONLY | O_CREAT | O_APPEND);
+                    }
+
+                    if(fd == -1) {
+                        perror("Unable to open an output file\n");
+                        exit(-1);
+                    }
+
+                    dup2(fd, 1);
+                    close(fd);
+                }
+
+
+            execvp(job->programs[i]->arguments[0], job->programs[i]->arguments);
             exit(0);
         }
 
@@ -640,6 +655,17 @@ void run_job(void) {
                 job->programs[i]->pid = fork();
 
                 if(job->programs[i]->pid == 0) {
+
+                    if(job->programs[i]->input_file != NULL) {
+                        fd = open(job->programs[i]->input_file, O_RDONLY);
+                        if (fd == -1) {
+                            perror("Unable to open an input file\n");
+                            exit(-1);
+                        }
+                        dup2(fd, 0);
+                        close(fd);
+                    }
+
 
                 if( j == 0 ) {
                         //printf("1 i=%d\tj=%d\n", i, j);
@@ -679,7 +705,7 @@ void run_job(void) {
                         //exit(0);
                     }
 
-                    execvpe(job->programs[i]->arguments[0], job->programs[i]->arguments, environ);
+                    execvp(job->programs[i]->arguments[0], job->programs[i]->arguments);
                     exit(0);
                 }
 
@@ -695,11 +721,12 @@ void run_job(void) {
             } 
             wait(NULL);
             i--;
-        }
-    }    
+        } /*else*/
+    } /*for*/    
 } 
 
-void free_job(void) {
+void free_job(void) 
+{
     int i = 0;
     for( i = 0; i < job->n; i++) {
         free(job->programs[i]->name);
@@ -734,7 +761,7 @@ int restore_terminal(void)
 
 void invite(void) 
 {
-    printf("\x1b[1;33m");
+    printf("\x1b[1;36m");
     printf("%s", getenv("USER"));
     printf("\x1B[0m");
     printf("$ ");

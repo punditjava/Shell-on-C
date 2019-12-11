@@ -11,13 +11,29 @@ int    argcc;
 
 int main(int argc, char **argv)
 {
-	int argcc = argc;
+	argcc = argc;
     argvv = argv;
     char *freeprog;
 
 	signal(SIGINT, handler_CtrlC);
 
 	initMS();
+
+	if (!isatty(fileno(stdin))) {
+		isFile = 1;
+		prog = mgets();
+		freeprog = prog;
+
+		init_job();
+
+		run_job();
+
+		free_job();
+		free(freeprog);
+		freeprog = NULL;
+		return 0;
+	}
+
 
 	init_terminal();
 
