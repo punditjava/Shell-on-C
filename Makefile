@@ -1,5 +1,15 @@
 CC = gcc
-FL = -Werror -g -o
+CFLAGS = -Wall -Wextra -g
+
 FI = shell.c implementation.c
-Shell: shell.c implementation.c
-	${CC} ${FI} ${FL} $@                
+
+Shell: $(patsubst %.c, %.o, $(FI))
+	$(CC) $(CFLAGS) -o $@ $^
+
+%.c : shell.h
+
+%.o : %.c
+	$(CC) $(CFLAGS) -c $^
+
+clean:
+	rm -f Shell *.o

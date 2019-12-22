@@ -78,7 +78,7 @@ void serror(int error)
     fprintf(stderr, "%s\n", e[error]);
 }
 
-void handler_CtrlC(int sig) 
+void handler_CtrlC() 
 {
     /*
        Остановка текущей работы
@@ -296,7 +296,7 @@ void find_environment(const char *string)
                 }
                 string++;
 
-            } else {
+            } else if (*string == '{'){
                 string += 1;
                 while(*string != '}') {
                     *buf++ = *string++;
@@ -626,11 +626,11 @@ void run_job(void)
                 if(job->programs[i]->output_file != NULL) {
                     if(job->programs[i]->output_type == 1) {
                         //fd = open(job->progs[i]->ofile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                        fd = open(job->programs[i]->output_file, O_WRONLY | O_CREAT | O_TRUNC);
+                        fd = open(job->programs[i]->output_file, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IWUSR | S_IXUSR);
                     }
                     if(job->programs[i]->output_type == 2) {
                         //fd = open(job->progs[i]->ofile, O_WRONLY | O_CREAT | O_APPEND);
-                        fd = open(job->programs [i]->output_file,  O_WRONLY | O_CREAT | O_APPEND);
+                        fd = open(job->programs [i]->output_file,  O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IWUSR | S_IXUSR);
                     }
 
                     if(fd == -1) {
@@ -761,7 +761,7 @@ int restore_terminal(void)
 
 void invite(void) 
 {
-    printf("\x1b[1;36m");
+    printf("\x1b[1;35m");
     printf("%s", getenv("USER"));
     printf("\x1B[0m");
     printf("$ ");

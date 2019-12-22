@@ -45,7 +45,7 @@ struct _Job {
     int convcount;
 };
 
-void  handler_CtrlC(int);
+void  handler_CtrlC();
 void invite(void);
 
 void init_job(void);
